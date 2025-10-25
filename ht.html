@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>WhatsApp Clone - Demo</title>
+<style>
+  :root{
+    --primary:#075E54; --accent:#128C7E; --muted:#f2f2f2; --text:#222;
+  }
+  *{box-sizing:border-box;font-family:Inter, system-ui, Arial, sans-serif}
+  body,html{height:100%;margin:0;background:linear-gradient(180deg,#eef7f4 0%, #fff 100%);color:var(--text)}
+  .app{max-width:1100px;margin:18px auto;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.08);display:flex;min-height:640px;background:#fff}
+  /* Left panel */
+  .sidebar{width:340px;border-right:1px solid #e6e6e6;padding:18px;background:linear-gradient(0deg,#ffffff, #fbfffe)}
+  .sidebar header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(90deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+  .search{margin:12px 0}
+  .search input{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e6e6}
+  .contact-list{overflow:auto;max-height:520px;padding-right:6px}
+  .contact{display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;cursor:pointer}
+  .contact:hover{background:#fbfbfb}
+  .contact .info{flex:1}
+  .contact .name{font-weight:600}
+  .contact .last{font-size:13px;color:#666}
+  .unread{background:var(--primary);color:#fff;padding:6px 8px;border-radius:999px;font-size:12px}
+
+  /* Right panel / chat */
+  .chat{flex:1;display:flex;flex-direction:column}
+  .chat-header{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #eee;background:linear-gradient(0deg,#fff,#fcfffd)}
+  .chat-area{flex:1;padding:18px;overflow:auto;background:linear-gradient(180deg,#f8fffb, #fff)}
+  .msg-row{display:flex;margin-bottom:12px;align-items:flex-end}
+  .msg.me{justify-content:flex-end}
+  .bubble{max-width:70%;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #eee}
+  .bubble.me{background:linear-gradient(90deg,var(--accent),var(--primary));color:#fff;border:none}
+  .meta{font-size:12px;color:#888;margin-top:6px}
+  .composer{padding:12px;border-top:1px solid #eee;display:flex;gap:8px;align-items:center}
+  .composer input[type="text"]{flex:1;padding:10px 12px;border-radius:999px;border:1px solid #e6e6e6}
+  .btn{background:var(--primary);color:#fff;padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+  .icon-btn{background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--primary)}
+  .small{font-size:13px;padding:6px 8px;border-radius:8px}
+
+  /* Pages (login/verify) */
+  .overlay-page{position:absolute;inset:0;background:rgba(255,255,255,0.96);display:flex;align-items:center;justify-content:center}
+  .card{width:360px;background:#fff;padding:22px;border-radius:12px;box-shadow:0 12px 40px rgba(10,10,10,0.06)}
+  .card h2{margin:0 0 8px;font-size:20px;color:var(--primary)}
+  .row{margin:10px 0}
+  .muted{color:#666;font-size:14px}
+  .otp-inputs{display:flex;gap:8px}
+  .otp-inputs input{width:48px;padding:10px;font-size:18px;text-align:center;border-radius:8px;border:1px solid #e6e6e6}
+
+  /* emoji panel */
+  .emoji-panel{position:absolute;bottom:74px;left:18px;background:#fff;border:1px solid #eee;padding:10px;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,0.06);display:grid;grid-template-columns:repeat(8,32px);gap:6px}
+  .emoji{cursor:pointer;font-size:18px;padding:6px;border-radius:6px}
+
+  /* modals */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center}
+  .modal{background:#fff;padding:18px;border-radius:10px;max-width:420px;width:92%}
+  .camera-preview video{width:100%;border-radius:8px;background:#000}
+
+  /* responsive */
+  @media (max-width:880px){
+    .app{flex-direction:column;min-height:100vh}
+    .sidebar{width:100%;border-right:none;border-bottom:1px solid #eee}
+    .chat{display:none}
+    .chat.show{display:flex}
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <!-- Sidebar (Contacts + search) -->
+  <div class="sidebar">
+    <header>
+      <div class="avatar" id="userAvatar">M</div>
+      <div>
+        <div id="userName" style="font-weight:700">Me</div>
+        <div class="muted" id="userPhone">Not logged</div>
+      </div>
+    </header>
+
+    <div class="search">
+      <input id="searchInput" placeholder="Search or start new chat" />
+    </div>
+
+    <div style="display:flex;gap:8px;margin:8px 0">
+      <button class="small" id="newChatBtn">+ New Chat</button>
+      <button class="small" id="logoutBtn">Logout</button>
+    </div>
+
+    <div class="contact-list" id="contactList"></div>
+  </div>
+
+  <!-- Chat panel -->
+  <div class="chat" id="chatPanel" aria-hidden="true">
+    <div class="chat-header">
+      <button class="icon-btn" id="backToList" title="Back to chats" style="display:none">←</button>
+      <div class="avatar" id="chatAvatar">A</div>
+      <div style="flex:1">
+        <div id="chatName" style="font-weight:700">Select a chat</div>
+        <div class="muted" id="chatStatus">Tap a contact to start</div>
+      </div>
+      <button class="icon-btn" id="callBtn" title="Call">📞</button>
+      <button class="icon-btn" id="moreBtn" title="More">⋮</button>
+    </div>
+
+    <div class="chat-area" id="chatArea"></div>
+
+    <div class="composer">
+      <button id="emojiBtn" class="icon-btn" title="Emoji">😊</button>
+      <input type="text" id="messageInput" placeholder="Type a message" />
+      <input type="file" id="fileInput" style="display:none" accept="image/*" />
+      <button id="attachBtn" class="icon-btn" title="Attach">📎</button>
+      <button id="cameraBtn" class="icon-btn" title="Camera">📷</button>
+      <button id="upiBtn" class="icon-btn" title="UPI">💸</button>
+      <button id="sendBtn" class="btn">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Login / Verify overlay -->
+<div id="loginPage" class="overlay-page">
+  <div class="card">
+    <h2>Welcome to ChatClone</h2>
+    <p class="muted">Enter your phone number to continue</p>
+
+    <div class="row">
+      <input id="phoneInput" placeholder="+91 9876543210" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e6e6e6" />
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="continueBtn" class="btn">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div id="verifyPage" class="overlay-page" style="display:none">
+  <div class="card">
+    <h2>Verify</h2>
+    <p class="muted">Enter the 4-digit OTP sent to <span id="verifyPhone"></span></p>
+    <div class="row otp-inputs">
+      <input maxlength="1" class="otp" />
+      <input maxlength="1" class="otp" />
+      <input maxlength="1" class="otp" />
+      <input maxlength="1" class="otp" />
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:space-between;margin-top:12px">
+      <div class="muted" id="otpMessage"></div>
+      <div>
+        <button id="resendOtp" class="small">Resend</button>
+        <button id="verifyBtn" class="btn">Verify</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Emoji panel (hidden until used) -->
+<div id="emojiPanel" class="emoji-panel" style="display:none"></div>
+
+<!-- UPI modal -->
+<div id="upiModal" style="display:none" class="modal-backdrop">
+  <div class="modal">
+    <h3>Send via UPI (demo)</h3>
+    <div class="row">
+      <label>To (UPI ID)</label>
+      <input id="upiId" placeholder="shop@upi" style="width:100%;padding:8px;border-radius:8px;border:1px solid #eee" />
+    </div>
+    <div class="row">
+      <label>Amount</label>
+      <input id="upiAmount" type="number" placeholder="100.00" style="width:100%;padding:8px;border-radius:8px;border:1px solid #eee" />
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button id="closeUpi" class="small">Cancel</button>
+      <button id="sendUpi" class="btn">Pay</button>
+    </div>
+  </div>
+</div>
+
+<!-- Camera modal -->
+<div id="cameraModal" style="display:none" class="modal-backdrop">
+  <div class="modal">
+    <h3>Camera</h3>
+    <div class="camera-preview" id="cameraPreview" style="margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="closeCamera" class="small">Close</button>
+      <button id="captureBtn" class="btn">Capture</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+  WhatsApp clone demo script
+  - Uses localStorage to persist users, contacts and messages
+  - OTP verification simulated (random 4-digit)
+  - Camera uses getUserMedia and captures image to be sent as dataURL
+*/
+
+// ---------- sample data ----------
+const sampleContacts = [
+  {id:'c1', name:'madhumitha', phone:'+91 9876512345', last:'Hey! ready for sem?', unread:2},
+
+  {id:'c2', name:'muthulakshmi', phone:'+91 9876534567', last:'Call me', unread:1},
+  //{id:'c3', name:'Priya', phone:'+91 9876523456', last:'Sent the notes', unread:0},
+  //{id:'c4', name:'Anu', phone:'+91 9876545678', last:'Ok', unread:0},
+];
+
+// ---------- helpers ----------
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+function uid(prefix='id'){return prefix+Math.random().toString(36).slice(2,9)}
+
+// ---------- state ----------
+let state = {
+  user: null,
+  contacts: [],
+  currentChat: null,
+  otp: null,
+  stream: null,
+};
+function saveState(){localStorage.setItem('chatclone_state', JSON.stringify({
+  user: state.user,
+  contacts: state.contacts
+}))}
+function loadState(){
+  const raw = localStorage.getItem('chatclone_state');
+  if(raw) {
+    const parsed = JSON.parse(raw);
+    state.user = parsed.user;
+    state.contacts = parsed.contacts || sampleContacts;
+  } else {
+    state.contacts = sampleContacts;
+  }
+}
+loadState();
+
+// message storage per contact id in localStorage key messages_<contactId>
+function getMessages(cid){
+  const raw = localStorage.getItem('messages_'+cid);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveMessage(cid,msg){
+  const arr = getMessages(cid);
+  arr.push(msg);
+  localStorage.setItem('messages_'+cid, JSON.stringify(arr));
+}
+
+// ---------- UI rendering ----------
+function renderContacts(filter=''){
+  const container = $('#contactList');
+  container.innerHTML = '';
+  const list = state.contacts.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()) || c.phone.includes(filter));
+  list.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'contact';
+    div.dataset.id = c.id;
+    div.innerHTML = `
+      <div class="avatar" style="width:44px;height:44px">${c.name.charAt(0)}</div>
+      <div class="info">
+        <div class="name">${c.name}</div>
+        <div class="last">${c.last || ''}</div>
+      </div>
+      ${c.unread ? `<div class="unread">${c.unread}</div>` : ''}
+    `;
+    div.addEventListener('click', ()=> openChat(c.id));
+    container.appendChild(div);
+  });
+}
+
+function openChat(cid){
+  const c = state.contacts.find(x=>x.id===cid);
+  if(!c) return;
+  state.currentChat = c;
+  // mark unread 0
+  c.unread = 0; saveState(); renderContacts($('#searchInput').value || '');
+  $('#chatAvatar').textContent = c.name.charAt(0);
+  $('#chatName').textContent = c.name;
+  $('#chatStatus').textContent = c.phone;
+  $('#chatPanel').setAttribute('aria-hidden','false');
+  // show back button on small screens
+  if(window.innerWidth <= 880) $('#chatPanel').classList.add('show'), $('#backToList').style.display='inline-block';
+  renderMessages(cid);
+}
+
+function renderMessages(cid){
+  const area = $('#chatArea');
+  area.innerHTML = '';
+  const msgs = getMessages(cid);
+  msgs.forEach(m=>{
+    const row = document.createElement('div');
+    row.className = 'msg-row ' + (m.from === 'me' ? 'me' : '');
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble ' + (m.from === 'me' ? 'me' : '');
+    if(m.type === 'text') bubble.innerHTML = `<div>${escapeHtml(m.text)}</div><div class="meta">${m.time}</div>`;
+    else if(m.type === 'image') bubble.innerHTML = `<img src="${m.data}" style="max-width:240px;border-radius:8px;display:block;margin-bottom:6px"><div class="meta">${m.time}</div>`;
+    else if(m.type === 'upi') bubble.innerHTML = `<div><strong>UPI Payment</strong><div>${escapeHtml(m.text)}</div></div><div class="meta">${m.time}</div>`;
+    row.appendChild(bubble);
+    area.appendChild(row);
+  });
+  area.scrollTop = area.scrollHeight;
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }) }
+
+// ---------- login/verify ----------
+$('#continueBtn').onclick = ()=>{
+  const phone = $('#phoneInput').value.trim();
+  if(!phone){ alert('Enter phone number'); return; }
+  state.otp = (''+Math.floor(1000+Math.random()*9000));
+  // show verify
+  $('#loginPage').style.display='none';
+  $('#verifyPage').style.display='flex';
+  $('#verifyPhone').textContent = phone;
+  $('#otpMessage').textContent = `OTP (for demo) : ${state.otp}`;
+  // prefill user info
+  state.user = {name:'Me', phone};
+  // store in state but only after verify
+  // focus on first OTP
+  setTimeout(()=> $$('.otp')[0].focus(),100);
+};
+$$('.otp').forEach((el,i)=>{
+  el.addEventListener('input', e=>{
+    if(e.target.value.length===1 && i<3) $$('.otp')[i+1].focus();
+  });
+});
+
+$('#resendOtp').onclick = ()=>{
+  state.otp = (''+Math.floor(1000+Math.random()*9000));
+  $('#otpMessage').textContent = `OTP resent (demo): ${state.otp}`;
+};
+
+$('#verifyBtn').onclick = ()=>{
+  const code = Array.from($$('.otp')).map(i=>i.value).join('');
+  if(code === state.otp){
+    // success
+    $('#verifyPage').style.display='none';
+    // persist user
+    saveState();
+    $('#userName').textContent = state.user.name;
+    $('#userPhone').textContent = state.user.phone;
+    $('#userAvatar').textContent = state.user.name.charAt(0);
+    renderContacts();
+  } else {
+    alert('Incorrect OTP (demo). Check the OTP shown above.');
+  }
+};
+
+$('#logoutBtn').onclick = ()=>{
+  if(confirm('Logout?')){
+    localStorage.removeItem('chatclone_state');
+    state.user = null;
+    location.reload();
+  }
+};
+
+// ---------- new chat ----------
+$('#newChatBtn').onclick = ()=>{
+  const name = prompt('New contact name');
+  const phone = prompt('Phone number');
+  if(name && phone){
+    const c = {id:uid('c'), name, phone, last:'', unread:0};
+    state.contacts.unshift(c);
+    saveState(); renderContacts();
+  }
+};
+
+// ---------- search ----------
+$('#searchInput').addEventListener('input', function(){ renderContacts(this.value) });
+
+// ---------- messaging ----------
+$('#sendBtn').onclick = sendText;
+$('#messageInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendText(); });
+
+function sendText(){
+  const txt = $('#messageInput').value.trim();
+  if(!txt || !state.currentChat) return;
+  const msg = {id:uid('m'), from:'me', type:'text', text: txt, time: new Date().toLocaleTimeString()};
+  saveMessage(state.currentChat.id, msg);
+  // update last
+  state.currentChat.last = txt;
+  saveState();
+  renderMessages(state.currentChat.id);
+  $('#messageInput').value='';
+  renderContacts($('#searchInput').value || '');
+  // simulate reply after a short delay
+  setTimeout(()=> {
+    const reply = {id:uid('m'), from:'them', type:'text', text:'Hi magesh!', time:new Date().toLocaleTimeString()};
+    saveMessage(state.currentChat.id, reply);
+    state.currentChat.last = reply.text;
+    state.currentChat.unread = (state.currentChat.unread||0)+1;
+    saveState();
+    renderMessages(state.currentChat.id);
+    renderContacts($('#searchInput').value || '');
+  }, 1200);
+}
+
+// ---------- attachments ----------
+$('#attachBtn').onclick = ()=> $('#fileInput').click();
+$('#fileInput').addEventListener('change', async (e)=>{
+  if(!state.currentChat) return;
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> {
+    const data = reader.result;
+    const msg = {id:uid('m'), from:'me', type:'image', data, time:new Date().toLocaleTimeString()};
+    saveMessage(state.currentChat.id, msg);
+    state.currentChat.last = '[Image]';
+    saveState();
+    renderMessages(state.currentChat.id);
+    renderContacts($('#searchInput').value || '');
+  };
+  reader.readAsDataURL(file);
+});
+
+// ---------- emoji panel ----------
+const emojis = ["😀","😁","😂","😊","😍","😘","😎","😢","😭","😡","👍","👎","🙏","👏","🤝","🤩","🥳","😴","😇","🤔","😅","🤷","🙌","💯","🔥","✨","🎉"];
+const emojiPanel = $('#emojiPanel');
+emojis.forEach(e=>{
+  const el = document.createElement('div');
+  el.className='emoji';
+  el.textContent = e;
+  el.onclick = ()=> {
+    $('#messageInput').value += e;
+    $('#emojiPanel').style.display='none';
+    $('#messageInput').focus();
+  }
+  emojiPanel.appendChild(el);
+});
+$('#emojiBtn').onclick = ()=>{
+  emojiPanel.style.display = emojiPanel.style.display==='none' ? 'grid' : 'none';
+};
+
+// close emoji when clicking outside
+document.addEventListener('click', (ev)=>{
+  if(!ev.target.closest('#emojiBtn') && !ev.target.closest('#emojiPanel')) $('#emojiPanel').style.display='none';
+});
+
+// ---------- UPI modal ----------
+$('#upiBtn').onclick = ()=> $('#upiModal').style.display='flex';
+$('#closeUpi').onclick = ()=> $('#upiModal').style.display='none';
+$('#sendUpi').onclick = ()=> {
+  const id = $('#upiId').value.trim(); const amt = $('#upiAmount').value;
+  if(!id || !amt){ alert('Enter UPI id and amount'); return; }
+  if(!state.currentChat) { alert('Open a chat first'); return; }
+  const txt = `Paid ₹${amt} to ${id}`;
+  const msg = {id:uid('m'), from:'me', type:'upi', text: txt, time:new Date().toLocaleTimeString()};
+  saveMessage(state.currentChat.id, msg);
+  state.currentChat.last = '[UPI] ' + txt;
+  saveState();
+  renderMessages(state.currentChat.id);
+  $('#upiModal').style.display='none';
+  $('#upiId').value=''; $('#upiAmount').value='';
+};
+
+// ---------- camera ----------
+$('#cameraBtn').onclick = openCamera;
+$('#closeCamera').onclick = closeCamera;
+$('#captureBtn').onclick = capturePhoto;
+
+async function openCamera(){
+  try {
+    const modal = $('#cameraModal'); modal.style.display='flex';
+    const preview = $('#cameraPreview');
+    preview.innerHTML = '<video autoplay playsinline id="camVideo"></video>';
+    state.stream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+    const video = $('#camVideo');
+    video.srcObject = state.stream;
+    await video.play();
+  } catch(err){
+    alert('Camera unavailable or permission denied.');
+    console.error(err);
+  }
+}
+function closeCamera(){
+  $('#cameraModal').style.display='none';
+  if(state.stream){
+    state.stream.getTracks().forEach(t=>t.stop());
+    state.stream = null;
+  }
+  $('#cameraPreview').innerHTML = '';
+}
+function capturePhoto(){
+  const video = document.getElementById('camVideo');
+  if(!video) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  const data = canvas.toDataURL('image/png');
+  // send as message
+  if(!state.currentChat){ alert('Open a chat to send'); return; }
+  const msg = {id:uid('m'), from:'me', type:'image', data, time:new Date().toLocaleTimeString()};
+  saveMessage(state.currentChat.id, msg);
+  state.currentChat.last = '[Photo]';
+  saveState();
+  renderMessages(state.currentChat.id);
+  closeCamera();
+  renderContacts($('#searchInput').value || '');
+}
+
+// ---------- small screen back btn ----------
+$('#backToList').onclick = ()=>{
+  $('#chatPanel').classList.remove('show'); $('#backToList').style.display='none';
+}
+
+// ---------- initial setup ----------
+(function init(){
+  if(!state.user){
+    $('#loginPage').style.display='flex';
+    $('#verifyPage').style.display='none';
+  } else {
+    $('#loginPage').style.display='none';
+    $('#verifyPage').style.display='none';
+    $('#userName').textContent = state.user.name;
+    $('#userPhone').textContent = state.user.phone;
+    $('#userAvatar').textContent = state.user.name.charAt(0);
+  }
+  renderContacts();
+})();
+
+// ---------- utility to create sample automatic reply when new contact is added ----------
+window.addEventListener('storage', ()=>{ /* placeholder for multi-tab sync */ });
+
+</script>
+
+</body>
+</html>

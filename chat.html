@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Multi-Page Clone</title>
+<style>
+  * { box-sizing: border-box; font-family: "Poppins", sans-serif; }
+  body {
+    margin: 0; background: #0b141a; color: #e9edef;
+    display: flex; align-items: center; justify-content: center;
+    height: 100vh;
+  }
+  .screen {
+    display: none; flex-direction: column; align-items: center;
+    width: 100%; max-width: 420px; padding: 30px; text-align: center;
+  }
+  .screen.active { display: flex; }
+  h1 { color: #25D366; margin-bottom: 20px; }
+  input {
+    width: 100%; padding: 10px; border: none; border-radius: 6px;
+    margin: 10px 0; background: #202c33; color: #e9edef;
+  }
+  button {
+    background: #25D366; color: #000; border: none; border-radius: 6px;
+    padding: 10px 20px; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #1ebe5d; }
+  .nav { margin-top: 20px; display: flex; justify-content: center; gap: 10px; }
+
+  /* Messages page styles */
+  .chat-container {
+    width: 100%; height: 420px; background: #111b21;
+    border-radius: 10px; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .chat-header {
+    background: #202c33; padding: 10px; font-weight: 600; text-align: left;
+  }
+  .chat-body {
+    flex: 1; padding: 10px; overflow-y: auto; display: flex;
+    flex-direction: column; gap: 10px;
+  }
+  .msg {
+    max-width: 70%; padding: 8px 12px; border-radius: 12px;
+    font-size: 14px; word-wrap: break-word;
+  }
+  .me { align-self: flex-end; background: #DCF8C6; color: #000; }
+  .other { align-self: flex-start; background: #2a3942; color: #e9edef; }
+  .chat-input {
+    display: flex; padding: 10px; background: #202c33; gap: 8px;
+  }
+  .chat-input input {
+    flex: 1; border-radius: 20px; border: none; padding: 10px;
+    background: #0b141a; color: #e9edef;
+  }
+  .chat-input button {
+    border-radius: 50%; width: 40px; height: 40px; padding: 0;
+  }
+  .status-page, .calls-page {
+    background: #111b21; border-radius: 10px; padding: 20px; width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div class="screen active" id="login">
+  <h1>WhatsApp Login</h1>
+  <input type="text" id="username" placeholder="Enter your name" />
+  <button onclick="goToVerify()">Next →</button>
+</div>
+
+<!-- VERIFICATION PAGE -->
+<div class="screen" id="verify">
+  <h1>Verification</h1>
+  <p>Enter 4-digit OTP sent to your number</p>
+  <input type="number" id="otp" placeholder="1234" />
+  <button onclick="goToMessages()">Next →</button>
+</div>
+
+<!-- MESSAGES PAGE -->
+<div class="screen" id="messages">
+  <h1>Messages</h1>
+  <div class="chat-container">
+    <div class="chat-header" id="chatHeader">Chat with Friend</div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-input">
+      <input id="msgInput" type="text" placeholder="Type a message..." />
+      <button onclick="sendMsg()">➤</button>
+    </div>
+  </div>
+  <div class="nav">
+    <button onclick="goToStatus()">Next →</button>
+  </div>
+</div>
+
+<!-- STATUS PAGE -->
+<div class="screen" id="status">
+  <h1>Status</h1>
+  <div class="status-page">
+    <p>📸 View or add your status here</p>
+  </div>
+  <div class="nav">
+    <button onclick="goToCalls()">Next →</button>
+  </div>
+</div>
+
+<!-- CALLS PAGE -->
+<div class="screen" id="calls">
+  <h1>Calls</h1>
+  <div class="calls-page">
+    <p>📞 View recent calls and start new ones</p>
+  </div>
+  <div class="nav">
+    <button onclick="goToLogin()">← Back to Login</button>
+  </div>
+</div>
+
+<script>
+  // helper to switch screens
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // login flow
+  function goToVerify() {
+    const name = document.getElementById('username').value.trim();
+    if (!name) return alert("Please enter your name");
+    localStorage.setItem('wa_user', name);
+    showScreen('verify');
+  }
+
+  function goToMessages() {
+    const otp = document.getElementById('otp').value.trim();
+    if (otp.length !== 4) return alert("Enter 4-digit OTP");
+    document.getElementById('chatHeader').innerText =
+      "Chat with " + localStorage.getItem('wa_user');
+    showScreen('messages');
+  }
+
+  function goToStatus() { showScreen('status'); }
+  function goToCalls() { showScreen('calls'); }
+  function goToLogin() { showScreen('login'); }
+
+  // --- Chat logic ---
+  const chatBody = document.getElementById('chatBody');
+  const input = document.getElementById('msgInput');
+
+  function sendMsg() {
+    const text = input.value.trim();
+    if (!text) return;
+    appendMsg('me', text);
+    input.value = '';
+    setTimeout(() => autoReply(text), 700);
+  }
+
+  function appendMsg(from, text) {
+    const msg = document.createElement('div');
+    msg.className = 'msg ' + (from === 'me' ? 'me' : 'other');
+    msg.textContent = text;
+    chatBody.appendChild(msg);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function autoReply(userText) {
+    let reply = "Okay!";
+    if (userText.toLowerCase().includes('hi')) reply = "Hello 👋!";
+    else if (userText.toLowerCase().includes('how are')) reply = "I'm fine 😄";
+    else if (userText.toLowerCase().includes('bye')) reply = "Bye 👋";
+    appendMsg('other', reply);
+  }
+</script>
+
+</body>
+</html>
